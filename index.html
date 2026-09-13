@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Wheelie League</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ffd75e'/%3E%3Cellipse cx='16' cy='16' rx='8' ry='5' fill='%2315171b'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<button id="btn-pause" class="icon-btn" aria-label="Pause">&#10073;&#10073;</button>
+
+<!-- touch controls (mobile) -->
+<div id="touch-controls">
+  <div class="tc-left">
+    <button id="tc-brake" class="tc-btn brake">BRAKE</button>
+  </div>
+  <div class="tc-right">
+    <div class="tc-tricks">
+      <button id="tc-knock" class="tc-btn trick">KNOCK</button>
+      <button id="tc-knee" class="tc-btn trick">KNEE</button>
+      <button id="tc-hand" class="tc-btn trick">HAND</button>
+      <button id="tc-seat" class="tc-btn trick">SEAT</button>
+      <button id="tc-nohand" class="tc-btn trick">NOHAND</button>
+    </div>
+    <button id="tc-throttle" class="tc-btn throttle">THROTTLE</button>
+  </div>
+</div>
+
+<!-- MAIN MENU -->
+<section id="screen-menu" class="screen">
+  <div class="menu-card">
+    <div class="title-block">
+      <h1>WHEELIE<span> LEAGUE</span></h1>
+      <p id="menu-sub" class="subtitle">Hold a wheelie. Chain tricks. Own every city.</p>
+    </div>
+    <div class="chips">
+      <span class="chip gold"><b id="menu-coins">0</b> coins</span>
+      <span class="chip" id="menu-level">Lv 1</span>
+      <span class="chip" id="menu-map-note">Next ride: Sunrise Strip</span>
+    </div>
+    <div class="menu-buttons">
+      <button class="btn primary big" data-go="run">RIDE</button>
+      <button class="btn big" data-go="map">MAP SELECT</button>
+      <button class="btn big" data-go="garage">GARAGE</button>
+      <button class="btn big" data-go="shop">SHOP</button>
+      <button class="btn big ghost" id="btn-settings">SETTINGS</button>
+    </div>
+    <p class="hint">Keys: D or &rarr; throttle &middot; A or &larr; brake &middot; Q knee-knocker, W knee drag, E hand drag, R seat stand, T no-hander &middot; both keys = fine balance &middot; Enter = play again</p>
+  </div>
+</section>
+
+<!-- MAP SELECT -->
+<section id="screen-map" class="screen">
+  <header class="bar">
+    <button class="btn back" id="map-back">&larr; Back</button>
+    <h2>MAP SELECT</h2>
+    <span class="chip gold"><b id="map-coins">0</b> coins</span>
+  </header>
+  <div id="map-grid" class="map-grid"></div>
+</section>
+
+<!-- SHOP -->
+<section id="screen-shop" class="screen">
+  <header class="bar">
+    <button class="btn back" id="shop-back">&larr; Back</button>
+    <h2>SHOP</h2>
+    <span class="chip gold"><b id="shop-coins">0</b> coins</span>
+  </header>
+  <div class="shop-layout">
+    <div class="shop-left">
+      <div id="shop-tabs" class="tabs">
+        <button class="tab active" data-tab="bikes">BIKES</button>
+        <button class="tab" data-tab="gear">GEAR &amp; DECALS</button>
+      </div>
+      <div id="shop-grid" class="shop-grid"></div>
+    </div>
+    <aside class="shop-right">
+      <canvas id="shop-preview" width="520" height="300"></canvas>
+      <p id="shop-preview-caption" class="muted small"></p>
+      <div id="shop-action"></div>
+      <div id="shop-toast" class="toast"></div>
+    </aside>
+  </div>
+</section>
+
+<!-- GARAGE -->
+<section id="screen-garage" class="screen">
+  <header class="bar">
+    <button class="btn back" id="garage-back">&larr; Back</button>
+    <h2>GARAGE</h2>
+    <span class="chip gold"><b id="garage-coins">0</b> coins</span>
+  </header>
+  <div class="garage-layout">
+    <div class="garage-cols">
+      <div id="garage-bikes" class="garage-col"></div>
+      <div id="garage-gear" class="garage-col"></div>
+      <div id="garage-decals" class="garage-col"></div>
+    </div>
+    <aside class="garage-preview-wrap">
+      <canvas id="garage-preview" width="520" height="300"></canvas>
+      <p class="muted small">Your current loadout, showing off.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="screen-results" class="screen">
+  <div class="menu-card results-card">
+    <h2>RUN COMPLETE</h2>
+    <p id="results-map-name" class="subtitle"></p>
+    <div id="results-stats" class="results-grid"></div>
+    <div class="results-cols">
+      <div>
+        <h3>Coins</h3>
+        <div id="results-coins"></div>
+      </div>
+      <div>
+        <h3>Progression</h3>
+        <div id="results-xp"></div>
+      </div>
+    </div>
+    <div class="menu-buttons row">
+      <button class="btn primary" id="results-again">PLAY AGAIN</button>
+      <button class="btn" id="results-shop">SHOP</button>
+      <button class="btn" id="results-map">MAP SELECT</button>
+      <button class="btn ghost" id="results-menu">MENU</button>
+    </div>
+  </div>
+</section>
+
+<!-- PAUSE -->
+<div id="overlay-pause" class="overlay">
+  <div class="modal">
+    <h2>PAUSED</h2>
+    <div class="menu-buttons">
+      <button class="btn primary" id="pause-resume">RESUME</button>
+      <button class="btn" id="pause-restart">RESTART RUN</button>
+      <button class="btn ghost" id="pause-quit">QUIT TO MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- LEVEL UP -->
+<div id="overlay-levelup" class="overlay">
+  <div class="modal levelup">
+    <p class="levelup-kicker">LEVEL UP</p>
+    <h2 id="levelup-title">LEVEL 2</h2>
+    <p id="levelup-sub" class="subtitle"></p>
+    <div id="levelup-postcards" class="postcards"></div>
+    <button class="btn primary" id="levelup-continue">CONTINUE</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings-modal" class="overlay">
+  <div class="modal">
+    <h2>SETTINGS</h2>
+    <label class="setting-row">Music
+      <input type="checkbox" id="set-music">
+    </label>
+    <label class="setting-row">Sound effects
+      <input type="checkbox" id="set-sfx">
+    </label>
+    <label class="setting-row">Touch controls
+      <select id="set-touch">
+        <option value="auto">Auto</option>
+        <option value="on">Always show</option>
+        <option value="off">Hide</option>
+      </select>
+    </label>
+    <div class="menu-buttons">
+      <button class="btn primary" id="settings-close">DONE</button>
+      <button class="btn danger" id="btn-reset">Reset all progress</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

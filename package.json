@@ -1,0 +1,13 @@
+{
+  "name": "wheelie-league",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Wheelie League - NHL-city wheelie-balance stunt game (vanilla HTML5 Canvas + JS, no build step)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
