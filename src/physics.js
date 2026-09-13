@@ -75,8 +75,13 @@ export class BikePhysics {
     this.brakeHeld = ramp(this.brakeHeld, input.brake);
 
     // --- Longitudinal ---
+    const bothHeld = input.throttle && input.brake;
     if (this.throttleHeld > 0) this.speed += b.accel * this.throttleHeld * dt;
-    if (this.brakeHeld > 0) this.speed -= b.brake * this.brakeHeld * dt;
+    if (this.brakeHeld > 0) {
+      // Fine-balance mode: the brake mostly pitches the bike, not slows it,
+      // so holding both keys sustains the wheelie instead of stalling it.
+      this.speed -= b.brake * (bothHeld ? 0.22 : 1) * this.brakeHeld * dt;
+    }
     // rolling drag + slope assist
     this.speed -= this.speed * 0.045 * dt;
     this.speed += -Math.sin(this.terrainAngle * Math.PI / 180) * 260 * dt;
@@ -102,12 +107,20 @@ export class BikePhysics {
     // only acts inside (and just outside) the band. Helps you hold a wheelie,
     // never fights a real loop-out: past the band edge gravity wins.
     const [alo, ahi] = this.sweet;
-    if (this.wheelied && ang > alo - 12 && ang < ahi + 12) {
-      const center = (alo + ahi) / 2;
+    const center = (alo + ahi) / 2;
+    const nearBand = this.wheelied && ang > alo - 12 && ang < ahi + 12;
+    if (nearBand) {
       torque -= (ang - center) * (0.3 + b.stability * 0.45);
     }
+    // Both-pedal fine balance: a real self-balance mode. Inside the band the
+    // bike actively centers itself (spring + velocity damping), so holding
+    // D+A rides the sweet spot - the SoFlo feel - while speed slowly bleeds.
+    if (nearBand && bothHeld) {
+      torque -= (ang - center) * 2.4;
+      torque -= this.angVel * 1.2;
+    }
     // Low-speed front fall: not rolling fast enough to hold it up.
-    if (this.speed < HOLD_SPEED && ang > 0) torque -= 26 * (1 - this.speed / HOLD_SPEED);
+    if (this.speed < HOLD_SPEED && ang > 0) torque -= 20 * (1 - this.speed / HOLD_SPEED);
     // Trick risk noise (deterministic-ish wobble, amplified mid-pose).
     if (risk && risk.noise > 0) {
       const n = Math.sin(this.noiseT * 9.3 + this.noiseSeed) * 0.6 +
@@ -119,7 +132,7 @@ export class BikePhysics {
     this.zoneTorque = 0;
 
     let damp = 1.05 + b.stability * 1.25;
-    if (input.throttle && input.brake) damp *= 2.6;   // both-pedal fine balance
+    if (bothHeld) damp *= 2.6;   // both-pedal fine balance
     damp *= this.zoneDampMul;
     this.zoneDampMul = 1;
 
