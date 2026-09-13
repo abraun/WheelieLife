@@ -40,6 +40,7 @@ export class BikePhysics {
     this.shake = 0;             // screen shake impulse
     this.throttleHeld = 0;      // smoothed throttle input, 0..1
     this.brakeHeld = 0;         // smoothed brake input, 0..1
+    this.susp = 0;              // suspension compression impulse, 0..1
   }
 
   get speedFrac() {
@@ -136,10 +137,12 @@ export class BikePhysics {
           this.crash('slam');
           return;
         }
-        // Controlled slap-down: chain dies, small speed bleed, shake.
+        // Controlled slap-down: chain dies, small speed bleed, shake,
+        // and the suspension takes the hit (visible compression).
         this.angVel = 0;
         this.speed *= 0.92;
         this.shake = Math.min(1, this.shake + 0.5);
+        this.susp = 1;
         if (onEvent) onEvent({ type: 'touchdown' });
       } else {
         this.angle = 0;
@@ -172,6 +175,7 @@ export class BikePhysics {
     if (this.inSweet && !wasIn && onEvent) onEvent({ type: 'sweetEnter' });
 
     this.shake = Math.max(0, this.shake - dt * 2.2);
+    this.susp = Math.max(0, this.susp - dt * 2.5);
   }
 
   crash(reason) {

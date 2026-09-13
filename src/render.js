@@ -9,6 +9,9 @@ const DESIGN_H = 800;      // render scale reference
 const CAM_OFFSET = 0.30;   // bike sits 30% from the left edge
 const WHEEL_R = 26;
 const WHEELBASE = 80;
+// Close-up camera like the reference wheelie games: the bike fills ~40% of
+// the screen height. uiScale keeps DOM-anchored HUD sizes stable.
+const ZOOM = 3;
 
 export class Renderer {
   constructor(canvas) {
@@ -28,7 +31,8 @@ export class Renderer {
       this.canvas.width = Math.round(w * dpr);
       this.canvas.height = Math.round(h * dpr);
     }
-    this.s = (h * dpr) / DESIGN_H;
+    this.uiScale = (h * dpr) / DESIGN_H;
+    this.s = this.uiScale * ZOOM;
     this.W = w * dpr;
     this.H = h * dpr;
     this.baseGroundY = this.H * 0.78;
@@ -246,9 +250,9 @@ export class Renderer {
         const x = this.worldToScreenX(wx);
         if (x < -120 || x > this.W + 120) continue;
         ctx.save();
-        ctx.translate(x, this.baseGroundY - 236 * s);
+        ctx.translate(x, this.baseGroundY - 150 * s);
         ctx.scale(s, s);
-        drawJumbotron(ctx, 0, 0, 130, 62, Math.floor(this.t * 60) + k, map.palette.accent);
+        drawJumbotron(ctx, 0, 0, 96, 46, Math.floor(this.t * 60) + k, map.palette.accent);
         ctx.restore();
       }
     }
@@ -414,7 +418,7 @@ export class Renderer {
     ctx.scale(s, s);
     // rotate about the rear contact patch; screen-y is down so negate angles
     ctx.rotate(-(phys.angle + slopeDeg) * Math.PI / 180);
-    drawBike(ctx, loadout, pose, spin, 0);
+    drawBike(ctx, loadout, pose, spin, 0, phys.susp || 0);
     ctx.restore();
     void map;
   }
@@ -516,30 +520,72 @@ function lampPostLocal(ctx, map, t, k) {
 
 // ---- Bike + rider vector art (design units) ---------------------------------------
 // Origin: rear tire contact patch at (0,0). Rear wheel center (0,-WHEEL_R),
-// front wheel center (WHEELBASE,-WHEEL_R). Bodywork evokes real electric
-// dirt bikes (trellis-frame trail bikes, shrouded MX e-motos, fat cruisers).
+// front wheel center (WHEELBASE,-WHEEL_R). Art direction follows the reference
+// wheelie games (SoFlo Wheelie Life): bold colored trellis frame as the star,
+// dark bodywork, deep tires with colored rims, chunky spokes, thick inverted
+// forks, and visible suspension that compresses on touchdown.
 
-export function drawBike(ctx, loadout, pose, wheelSpin, wrecked) {
+export function drawBike(ctx, loadout, pose, wheelSpin, wrecked, susp = 0) {
   const bike = loadout.bike;
   const P = bike.paint;
   const R = WHEEL_R;
+  const drop = susp * 5;   // body sinks toward the wheels under compression
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   drawWheel(ctx, 0, -R, wheelSpin, bike.look, P, true);
   drawWheel(ctx, WHEELBASE, -R, wheelSpin, bike.look, P, false);
 
-  // swingarm: rear hub to pivot
-  ctx.strokeStyle = '#3a3f47';
-  ctx.lineWidth = 6;
+  // swingarm (thick) + chain run up to the pivot
+  ctx.strokeStyle = '#23272e';
+  ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(2, -R + 2);
-  ctx.lineTo(30, -44);
+  ctx.moveTo(32, -46 + drop);
+  ctx.lineTo(2, -R + 1);
+  ctx.stroke();
+  ctx.strokeStyle = '#4a5058';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(4, -R - 5);
+  ctx.lineTo(32, -50 + drop);
+  ctx.moveTo(4, -R + 4);
+  ctx.lineTo(31, -42 + drop);
   ctx.stroke();
 
+  // bodywork drops with the suspension
+  ctx.save();
+  ctx.translate(0, drop);
   if (bike.look === 'fat') drawFatBody(ctx, bike, P);
   else if (bike.look === 'mx') drawMxBody(ctx, bike, P);
   else drawDirtBody(ctx, bike, P);
+  ctx.restore();
+
+  // inverted fork: fat dark upper tube fixed to the body (drops with it),
+  // colored stanchion slides up inside on compression
+  ctx.strokeStyle = '#1d2126';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(70, -62 + drop);
+  ctx.lineTo(76, -44 + drop);
+  ctx.stroke();
+  ctx.strokeStyle = P.fork || '#c9a227';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(76, -44 + drop);
+  ctx.lineTo(WHEELBASE, -R);
+  ctx.stroke();
+  // handlebar + crossbar
+  ctx.strokeStyle = '#1d2126';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(70, -62 + drop);
+  ctx.lineTo(61, -70 + drop);
+  ctx.moveTo(67, -65 + drop);
+  ctx.lineTo(72, -58 + drop);
+  ctx.stroke();
+
+  // rear shock: coil spring visibly bunches under compression
+  drawShock(ctx, 30, -54 + drop, 13, -31, P.accent);
 
   // fender specials
   if (bike.fender === 'zamboni') {
@@ -587,317 +633,288 @@ export function drawBike(ctx, loadout, pose, wheelSpin, wrecked) {
 
 function drawWheel(ctx, cx, cy, spin, look, P, rear) {
   const fat = look === 'fat';
-  const tireW = fat ? 12 : 8;
+  const tireW = fat ? 15 : 11;         // deep black sidewall
+  const rimR = WHEEL_R - tireW;
   // tire
-  ctx.fillStyle = '#15171b';
+  ctx.fillStyle = '#101216';
   ctx.beginPath();
   ctx.arc(cx, cy, WHEEL_R, 0, Math.PI * 2);
-  ctx.arc(cx, cy, WHEEL_R - tireW, 0, Math.PI * 2, true);
+  ctx.arc(cx, cy, rimR, 0, Math.PI * 2, true);
   ctx.fill();
-  // knobs (off-road tread)
-  if (look !== 'fat') {
-    ctx.fillStyle = '#15171b';
-    for (let i = 0; i < 12; i++) {
-      const a = spin + (i * Math.PI * 2) / 12;
-      ctx.save();
-      ctx.translate(cx + Math.cos(a) * (WHEEL_R - 1.5), cy + Math.sin(a) * (WHEEL_R - 1.5));
-      ctx.rotate(a);
-      ctx.fillRect(-2.5, -2, 5, 4);
-      ctx.restore();
-    }
+  // chunky knobs
+  ctx.fillStyle = '#101216';
+  for (let i = 0; i < 14; i++) {
+    const a = spin + (i * Math.PI * 2) / 14;
+    ctx.save();
+    ctx.translate(cx + Math.cos(a) * (WHEEL_R - 1), cy + Math.sin(a) * (WHEEL_R - 1));
+    ctx.rotate(a);
+    ctx.fillRect(-3, -2.6, 6, 5.2);
+    ctx.restore();
   }
-  // rim
-  ctx.strokeStyle = '#454b54';
-  ctx.lineWidth = 3;
+  // subtle sidewall highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(cx, cy, WHEEL_R - tireW, 0, Math.PI * 2);
+  ctx.arc(cx, cy, WHEEL_R - tireW / 2, 0, Math.PI * 2);
   ctx.stroke();
-  if (look === 'fat') {
-    // thick mag spokes
-    ctx.strokeStyle = '#2c3037';
-    ctx.lineWidth = 5;
+  // colored rim ring - the signature look
+  ctx.strokeStyle = P.accent;
+  ctx.lineWidth = fat ? 5.5 : 4.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rimR - 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  // chunky mag spokes
+  ctx.strokeStyle = '#23272e';
+  ctx.lineWidth = fat ? 6 : 4.5;
+  const spokes = fat ? 5 : 6;
+  const spokeR = rimR - 5;
+  for (let i = 0; i < spokes; i++) {
+    const a = spin + (i * Math.PI * 2) / spokes;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(a) * spokeR, cy + Math.sin(a) * spokeR);
+    ctx.stroke();
+  }
+  // drilled brake disc
+  const discX = cx + (rear ? 0 : 7);
+  ctx.strokeStyle = '#9aa1aa';
+  ctx.lineWidth = rear ? 1.6 : 2;
+  ctx.beginPath();
+  ctx.arc(discX, cy, rear ? 12 : 11, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#9aa1aa';
+  for (let i = 0; i < 6; i++) {
+    const a = spin * 0.5 + (i * Math.PI) / 3;
+    ctx.beginPath();
+    ctx.arc(discX + Math.cos(a) * 7.5, cy + Math.sin(a) * 7.5, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // caliper
+  ctx.fillStyle = P.accent;
+  rrFill(ctx, cx + (rear ? 10 : 15), cy - 8, 7, 15, 3);
+  // hub: bolted on the front, big hub motor on the rear (e-moto signature)
+  if (rear) {
+    ctx.fillStyle = '#1b1f24';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = P.accent;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 7.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#31363e';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#1b1f24';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#4a5058';
     for (let i = 0; i < 3; i++) {
       const a = spin + (i * Math.PI * 2) / 3;
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * (WHEEL_R - tireW - 2), cy + Math.sin(a) * (WHEEL_R - tireW - 2));
-      ctx.stroke();
+      ctx.arc(cx + Math.cos(a) * 3.2, cy + Math.sin(a) * 3.2, 1.1, 0, Math.PI * 2);
+      ctx.fill();
     }
-  } else {
-    ctx.strokeStyle = '#4a5058';
-    ctx.lineWidth = 1.6;
-    for (let i = 0; i < 8; i++) {
-      const a = spin + (i * Math.PI) / 4;
-      ctx.beginPath();
-      ctx.moveTo(cx - Math.cos(a) * (WHEEL_R - tireW - 2), cy - Math.sin(a) * (WHEEL_R - tireW - 2));
-      ctx.lineTo(cx + Math.cos(a) * (WHEEL_R - tireW - 2), cy + Math.sin(a) * (WHEEL_R - tireW - 2));
-      ctx.stroke();
-    }
-  }
-  // brake disc
-  ctx.strokeStyle = '#8d939c';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(cx + (rear ? 0 : 6), cy, 9, 0, Math.PI * 2);
-  ctx.stroke();
-  // caliper
-  ctx.fillStyle = P.accent;
-  rrFill(ctx, cx + (rear ? 8 : 14), cy - 7, 7, 13, 3);
-  // hub motor (rear): the signature e-moto cylinder
-  if (rear) {
-    ctx.fillStyle = '#2a2e35';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 8.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#3d434c';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#565d68';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 7, 0.3, 2.4);
-    ctx.stroke();
-  } else {
-    ctx.fillStyle = '#2a2e35';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
-    ctx.fill();
   }
 }
 
-// Trail e-moto: trellis frame, battery spine, flat bench seat, high fender,
-// front number plate (the "light bee" silhouette).
-function drawDirtBody(ctx, bike, P) {
-  // trellis frame
-  ctx.strokeStyle = P.frame;
-  ctx.lineWidth = 5.5;
+// Coil-over shock drawn between two points; the coil zigzag naturally bunches
+// as the endpoints squeeze together.
+function drawShock(ctx, x1, y1, x2, y2, color) {
+  ctx.strokeStyle = '#6a7078';
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
-  ctx.moveTo(30, -44);
-  ctx.lineTo(22, -62);
-  ctx.lineTo(48, -60);
-  ctx.moveTo(30, -44);
-  ctx.lineTo(52, -50);
-  ctx.moveTo(52, -50);
-  ctx.lineTo(70, -50);
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
   ctx.stroke();
-  ctx.lineWidth = 3;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.moveTo(30, -44);
-  ctx.lineTo(48, -50);
-  ctx.moveTo(40, -47);
-  ctx.lineTo(34, -58);
-  ctx.stroke();
-
-  // battery spine (body color, accent stripe)
-  ctx.fillStyle = P.body;
-  rrFill(ctx, 24, -58, 32, 11, 4);
-  ctx.fillStyle = P.accent;
-  ctx.fillRect(28, -55, 24, 2.4);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(24, -52, 32, 2);
-
-  // rear shock
-  ctx.strokeStyle = '#c9a227';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(12, -34);
-  ctx.lineTo(28, -50);
-  ctx.stroke();
-  ctx.strokeStyle = '#8d939c';
-  ctx.lineWidth = 1.4;
-  for (let i = 0; i < 4; i++) {
-    const t0 = i / 4, t1 = (i + 0.5) / 4;
-    ctx.beginPath();
-    ctx.moveTo(12 + (28 - 12) * t0, -34 + (-50 + 34) * t0);
-    ctx.lineTo(12 + (28 - 12) * t1, -34 + (-50 + 34) * t1);
-    ctx.stroke();
+  const n = 10;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const px = x1 + dx * t;
+    const py = y1 + dy * t;
+    const o = i % 2 ? 3.2 : -3.2;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px + nx * o, py + ny * o);
   }
-
-  // seat bench + tail
-  ctx.fillStyle = P.seat;
-  rrFill(ctx, 10, -64, 34, 7, 3.5);
-  rrFill(ctx, 8, -62, 8, 5, 2.5);
-
-  // inverted fork (gold two-tone) + bar
-  ctx.strokeStyle = '#565d68';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(WHEELBASE, -WHEEL_R);
-  ctx.lineTo(72, -58);
   ctx.stroke();
-  ctx.strokeStyle = P.fork || '#c9a227';
-  ctx.lineWidth = 3.5;
+}
+
+// Trail e-moto: bold trellis frame, dark battery box, long flat seat with a
+// pointed tail, high fender, front number plate (the "light bee" silhouette).
+function drawDirtBody(ctx, bike, P) {
+  // bold trellis frame - the colored star of the bike
+  ctx.strokeStyle = P.body;
+  ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(75, -40);
-  ctx.lineTo(70, -60);
+  ctx.moveTo(32, -46);
+  ctx.lineTo(24, -66);
+  ctx.lineTo(56, -62);
+  ctx.closePath();
+  ctx.moveTo(56, -62);
+  ctx.lineTo(62, -48);
   ctx.stroke();
-  ctx.strokeStyle = '#22262b';
   ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.moveTo(70, -60);
-  ctx.lineTo(62, -68);
+  ctx.moveTo(32, -46);
+  ctx.lineTo(46, -56);
+  ctx.moveTo(46, -56);
+  ctx.lineTo(41, -64);
   ctx.stroke();
+
+  // controller box fills the lower trellis triangle
+  ctx.fillStyle = P.frame;
+  rrFill(ctx, 33, -56, 17, 9, 3);
+  ctx.fillStyle = P.accent;
+  ctx.beginPath();
+  ctx.arc(46, -51.5, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // battery box (dark, sits inside the frame)
+  ctx.fillStyle = P.frame;
+  rrFill(ctx, 30, -66, 28, 12, 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  ctx.fillRect(32, -64, 24, 2);
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(34, -57, 20, 2.2);
+
+  // long flat seat with pointed tail
+  ctx.fillStyle = P.seat;
+  ctx.beginPath();
+  ctx.moveTo(-4, -70);
+  ctx.lineTo(36, -63);
+  ctx.lineTo(33, -59);
+  ctx.lineTo(2, -62);
+  ctx.closePath();
+  ctx.fill();
 
   // high front fender
   ctx.fillStyle = P.body;
   ctx.save();
-  ctx.translate(78, -58);
-  ctx.rotate(-0.12);
-  rrFill(ctx, -10, 0, 26, 6, 3);
+  ctx.translate(80, -64);
+  ctx.rotate(-0.14);
+  rrFill(ctx, -12, 0, 30, 7, 3.5);
   ctx.restore();
 
   // front number plate
   ctx.fillStyle = '#e8e8e8';
-  rrFill(ctx, 76, -58, 9, 18, 3);
+  rrFill(ctx, 78, -60, 9, 20, 3);
   ctx.fillStyle = P.accent;
-  ctx.fillRect(78, -50, 5, 2);
+  ctx.fillRect(80, -52, 5, 2.4);
   void bike;
 }
 
-// Shrouded motocross e-moto: tank shrouds, low fender, mid drive unit.
+// Shrouded motocross e-moto: frame spine, radiator shroud wings, mid drive
+// unit, long flat seat, low fender hugging the wheel.
 function drawMxBody(ctx, bike, P) {
-  // main frame spine
-  ctx.strokeStyle = P.frame;
-  ctx.lineWidth = 6;
+  // bold frame spine
+  ctx.strokeStyle = P.body;
+  ctx.lineWidth = 8;
   ctx.beginPath();
-  ctx.moveTo(28, -42);
-  ctx.lineTo(40, -58);
-  ctx.lineTo(58, -60);
-  ctx.moveTo(58, -60);
-  ctx.lineTo(72, -50);
+  ctx.moveTo(30, -44);
+  ctx.lineTo(42, -64);
+  ctx.lineTo(62, -62);
+  ctx.moveTo(62, -62);
+  ctx.lineTo(74, -52);
   ctx.stroke();
 
   // mid drive unit
-  ctx.fillStyle = '#2a2e35';
-  rrFill(ctx, 32, -44, 18, 12, 4);
-  ctx.fillStyle = '#3d434c';
-  ctx.fillRect(35, -41, 12, 3);
+  ctx.fillStyle = '#1b1f24';
+  rrFill(ctx, 32, -46, 20, 14, 5);
+  ctx.fillStyle = '#31363e';
+  ctx.fillRect(35, -42, 14, 3.5);
 
-  // battery in the spine
-  ctx.fillStyle = P.body;
-  rrFill(ctx, 30, -60, 34, 13, 5);
-  ctx.fillStyle = P.accent;
-  ctx.fillRect(34, -56, 26, 2.6);
+  // dark battery mass in the spine
+  ctx.fillStyle = P.frame;
+  rrFill(ctx, 30, -68, 36, 15, 6);
 
-  // radiator shrouds (wings)
+  // radiator shroud wings over the battery
   ctx.fillStyle = P.body;
   ctx.beginPath();
-  ctx.moveTo(46, -62);
-  ctx.lineTo(70, -56);
-  ctx.lineTo(62, -46);
-  ctx.lineTo(44, -50);
+  ctx.moveTo(48, -70);
+  ctx.lineTo(74, -60);
+  ctx.lineTo(64, -48);
+  ctx.lineTo(46, -54);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = P.accent;
   ctx.beginPath();
-  ctx.moveTo(52, -60);
-  ctx.lineTo(67, -55);
-  ctx.lineTo(60, -49);
-  ctx.lineTo(48, -52);
+  ctx.moveTo(54, -67);
+  ctx.lineTo(70, -60);
+  ctx.lineTo(62, -52);
+  ctx.lineTo(51, -56);
   ctx.closePath();
   ctx.fill();
 
-  // seat long flat
+  // long flat seat with pointed tail
   ctx.fillStyle = P.seat;
-  rrFill(ctx, 12, -64, 34, 7, 3.5);
-
-  // fork (gold legs) + bar + front disc guard
-  ctx.strokeStyle = '#565d68';
-  ctx.lineWidth = 6;
   ctx.beginPath();
-  ctx.moveTo(WHEELBASE, -WHEEL_R);
-  ctx.lineTo(73, -56);
-  ctx.stroke();
-  ctx.strokeStyle = P.fork || '#c9a227';
-  ctx.lineWidth = 3.5;
-  ctx.beginPath();
-  ctx.moveTo(76, -38);
-  ctx.lineTo(71, -58);
-  ctx.stroke();
-  ctx.strokeStyle = '#22262b';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(71, -58);
-  ctx.lineTo(62, -66);
-  ctx.stroke();
+  ctx.moveTo(-4, -69);
+  ctx.lineTo(32, -64);
+  ctx.lineTo(29, -60);
+  ctx.lineTo(0, -62);
+  ctx.closePath();
+  ctx.fill();
 
   // low front fender hugging the wheel
-  ctx.fillStyle = P.body;
-  ctx.save();
-  ctx.translate(WHEELBASE, -WHEEL_R);
-  ctx.beginPath();
-  ctx.arc(0, 0, WHEEL_R + 5, -Math.PI * 0.75, -Math.PI * 0.2);
-  ctx.lineWidth = 5;
   ctx.strokeStyle = P.body;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(WHEELBASE, -WHEEL_R, WHEEL_R + 7, -Math.PI * 0.78, -Math.PI * 0.18);
   ctx.stroke();
-  ctx.restore();
 
   // number plate
   ctx.fillStyle = '#e8e8e8';
-  rrFill(ctx, 77, -56, 8, 16, 3);
+  rrFill(ctx, 79, -58, 9, 19, 3);
   ctx.fillStyle = P.accent;
-  ctx.fillRect(79, -49, 4, 2);
+  ctx.fillRect(81, -50, 5, 2.4);
 }
 
-// Fat-tire street cruiser: long bench, chunky tank box, basher plate.
+// Fat-tire street cruiser: bold frame loop, chunky battery tank box, long low
+// bench, basher plate, stubby fender.
 function drawFatBody(ctx, bike, P) {
-  // frame
-  ctx.strokeStyle = P.frame;
-  ctx.lineWidth = 7;
+  // bold frame loop
+  ctx.strokeStyle = P.body;
+  ctx.lineWidth = 9;
   ctx.beginPath();
-  ctx.moveTo(26, -42);
-  ctx.lineTo(34, -60);
-  ctx.lineTo(58, -62);
-  ctx.moveTo(58, -62);
-  ctx.lineTo(74, -48);
+  ctx.moveTo(30, -44);
+  ctx.lineTo(36, -66);
+  ctx.lineTo(62, -66);
+  ctx.moveTo(62, -66);
+  ctx.lineTo(76, -52);
   ctx.stroke();
 
-  // chunky tank box
-  ctx.fillStyle = P.body;
-  rrFill(ctx, 32, -66, 32, 15, 6);
+  // chunky battery tank box
+  ctx.fillStyle = P.frame;
+  rrFill(ctx, 34, -72, 30, 16, 6);
   ctx.fillStyle = P.accent;
-  rrFill(ctx, 37, -62, 22, 5, 2.5);
+  rrFill(ctx, 38, -68, 22, 5, 2.5);
 
-  // long low bench
+  // long low bench seat
   ctx.fillStyle = P.seat;
-  rrFill(ctx, 10, -66, 26, 8, 4);
+  rrFill(ctx, 6, -68, 28, 9, 4.5);
 
   // basher plate under the motor
-  ctx.fillStyle = '#3a3f47';
-  rrFill(ctx, 26, -40, 30, 6, 3);
-
-  // mini fat fender + bar
-  ctx.strokeStyle = '#565d68';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(WHEELBASE, -WHEEL_R);
-  ctx.lineTo(72, -54);
-  ctx.stroke();
-  ctx.strokeStyle = P.fork || '#3a3f47';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(76, -36);
-  ctx.lineTo(70, -56);
-  ctx.stroke();
-  ctx.strokeStyle = '#22262b';
-  ctx.lineWidth = 4.5;
-  ctx.beginPath();
-  ctx.moveTo(70, -56);
-  ctx.lineTo(60, -62);
-  ctx.moveTo(70, -56);
-  ctx.lineTo(74, -64);
-  ctx.stroke();
+  ctx.fillStyle = '#23272e';
+  rrFill(ctx, 28, -40, 30, 7, 3.5);
 
   // stubby fender
-  ctx.fillStyle = P.frame;
-  ctx.save();
-  ctx.translate(WHEELBASE, -WHEEL_R);
+  ctx.strokeStyle = P.body;
+  ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.arc(0, 0, WHEEL_R + 6, -Math.PI * 0.7, -Math.PI * 0.25);
-  ctx.lineWidth = 6;
+  ctx.arc(WHEELBASE, -WHEEL_R, WHEEL_R + 9, -Math.PI * 0.72, -Math.PI * 0.22);
   ctx.stroke();
-  ctx.restore();
   void bike;
 }
 

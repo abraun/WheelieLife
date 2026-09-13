@@ -40,7 +40,7 @@ export class Hud {
     const phys = run.physics;
     const W = this.game.renderer.W;
     const H = this.game.renderer.H;
-    const s = this.game.renderer.s;
+    const s = this.game.renderer.uiScale;
     const pal = map.palette;
     ctx.save();
     ctx.textBaseline = 'alphabetic';
