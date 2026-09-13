@@ -70,13 +70,14 @@ export class Hud {
       ctx.fillText('DAILY 1.25x', W - 22 * s, 64 * s);
     }
 
-    // speed (bottom left, above touch controls)
+    // speed (bottom left; lifted above the touch pad when it is shown)
     ctx.textAlign = 'left';
+    const speedY = this.touchShown ? H - 178 * s : H - 64 * s;
     ctx.fillStyle = 'rgba(10,12,16,0.55)';
-    ctx.fillRect(12 * s, H - 64 * s, 118 * s, 44 * s);
+    ctx.fillRect(12 * s, speedY, 118 * s, 44 * s);
     ctx.fillStyle = '#fff';
     ctx.font = `bold ${19 * s}px system-ui, sans-serif`;
-    ctx.fillText(`${Math.round(phys.speedMps * 3.6)} km/h`, 22 * s, H - 36 * s);
+    ctx.fillText(`${Math.round(phys.speedMps * 3.6)} km/h`, 22 * s, speedY + 28 * s);
 
     // combo (top left)
     const chain = run.tricks.chain;
@@ -214,7 +215,7 @@ export class Hud {
     const g = this.game;
     bind('tc-throttle', () => g.input.throttle = true, () => g.input.throttle = false);
     bind('tc-brake', () => g.input.brake = true, () => g.input.brake = false);
-    for (const [id, trick] of [['tc-knee', 'knee'], ['tc-hand', 'hand'], ['tc-seat', 'seat'], ['tc-nohand', 'nohand']]) {
+    for (const [id, trick] of [['tc-knock', 'knock'], ['tc-knee', 'knee'], ['tc-hand', 'hand'], ['tc-seat', 'seat'], ['tc-nohand', 'nohand']]) {
       bind(id, () => g.queueTrick(trick), () => {});
     }
   }
@@ -225,6 +226,7 @@ export class Hud {
     const setting = this.game.save.settings.touchControls;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
     const show = v && (setting === 'on' || (setting === 'auto' && coarse));
+    this.touchShown = show;
     wrap.style.display = show ? 'flex' : 'none';
   }
 }

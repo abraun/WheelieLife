@@ -8,7 +8,7 @@ import { Hud } from './ui/hud.js';
 import { BikePhysics } from './physics.js';
 import { TrickSystem } from './tricks.js';
 import { RunBank, xpForRun, milestoneFor, xpForMilestone, MILESTONES } from './economy.js';
-import { bikeById, jerseyById, DECALS } from './bikes.js';
+import { bikeById, jerseyById, helmetById, DECALS } from './bikes.js';
 import { MAPS, mapById } from './maps/maps.js';
 import { generateZones, zonesAt, generatePucks } from './maps/mapUtils.js';
 import { initMenu, refreshMenu } from './ui/menu.js';
@@ -41,6 +41,7 @@ function startRun(mapId) {
 
   const bike = bikeById(save.equipped.bike);
   const jersey = jerseyById(save.equipped.jersey);
+  const helmet = helmetById(save.equipped.helmet);
   const decal = DECALS.find((d) => d.id === save.equipped.decal) || null;
 
   const mult = claimDailyMultiplier();
@@ -50,7 +51,7 @@ function startRun(mapId) {
     tricks: new TrickSystem(),
     bank: new RunBank(mult),
     bike,
-    loadout: { bike, jersey, decal },
+    loadout: { bike, jersey, helmet, decal },
     zones: generateZones(map, 400000),
     pucks: generatePucks(map),
     pucksFound: 0,
@@ -72,8 +73,13 @@ function startRun(mapId) {
 
   game.run = run;
   game.state = 'run';
-  game.input.throttle = false;
-  game.input.brake = false;
+  clearInputs();
+  game.pendingResults = null;
+  // Any overlay left open (level-up, pause, settings) must not sit on top of a live run.
+  document.querySelectorAll('.overlay').forEach((o) => o.classList.remove('open'));
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   document.body.classList.add('in-run');
   hideScreens();
   game.hud.reset();
@@ -89,6 +95,7 @@ function hideScreens() {
 
 game.goTo = function (where) {
   game.state = where === 'menu' ? 'menu' : where;
+  clearInputs();
   game.audio.stopEngine();
   document.body.classList.remove('in-run');
   if (game.run && !game.run.ended) game.run = null;
@@ -244,6 +251,7 @@ function onPhysicsEvent(ev) {
 function onCrashDetected() {
   const run = game.run;
   run.crashHandled = true;
+  clearInputs();
   const ts = run.tricks;
   ts.breakChain();
   run.bank.applyCrash(run.bike.crashPenalty);
@@ -294,6 +302,7 @@ game.finishRunForTest = finishRun;
 function pauseGame() {
   if (game.state !== 'run') return;
   game.state = 'paused';
+  clearInputs();
   document.querySelector('#overlay-pause').classList.add('open');
   game.audio.stopEngine();
 }
@@ -311,24 +320,59 @@ function quitRun() {
 }
 
 // ---- Input ---------------------------------------------------------------------
+// Input hardening: throttle/brake are latched flags that only a matching keyup
+// should clear, so any state transition (crash, results, pause, tab switch,
+// window blur) clears them. A key released while the window is unfocused never
+// delivers its keyup, which is how stale throttle used to leak into the next run.
+
+const heldKeys = new Set();
+const MOVE_KEYS = new Set(['arrowright', 'd', 'arrowleft', 'a']);
+const TRICK_KEYS = new Set(['q', 'w', 'e', 'r', 't']);
+
+function clearInputs() {
+  heldKeys.clear();
+  game.input.throttle = false;
+  game.input.brake = false;
+}
+
+function confirmOverlays() {
+  // Enter on the post-run screens: keyboard players are never stranded.
+  if (game.state === 'levelup' && document.querySelector('#overlay-levelup').classList.contains('open')) {
+    document.querySelector('#levelup-continue').click();
+    return true;
+  }
+  if (game.state === 'results') {
+    document.querySelector('#results-again').click();
+    return true;
+  }
+  return false;
+}
 
 function setupInput() {
   window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
     const k = e.key.toLowerCase();
-    if (k === 'arrowright' || k === 'd') { game.input.throttle = true; e.preventDefault(); }
-    else if (k === 'arrowleft' || k === 'a') { game.input.brake = true; e.preventDefault(); }
-    else if (['w', 's', 'e', 'r'].includes(k)) queueTrick(k === 'w' ? 'knee' : k === 's' ? 'hand' : k === 'e' ? 'seat' : 'nohand');
-    else if (k === 'escape' || k === 'p') {
+    if (MOVE_KEYS.has(k) || TRICK_KEYS.has(k)) e.preventDefault();
+    if (e.repeat) return;
+    heldKeys.add(k);
+    if (k === 'arrowright' || k === 'd') game.input.throttle = true;
+    else if (k === 'arrowleft' || k === 'a') game.input.brake = true;
+    else if (k === 'enter') confirmOverlays();
+    else if (TRICK_KEYS.has(k)) {
+      const id = { q: 'knock', w: 'knee', e: 'hand', r: 'seat', t: 'nohand' }[k];
+      queueTrick(id);
+    } else if (k === 'escape' || k === 'p') {
       if (game.state === 'run') pauseGame();
       else if (game.state === 'paused') resumeGame();
     }
   });
   window.addEventListener('keyup', (e) => {
     const k = e.key.toLowerCase();
+    heldKeys.delete(k);
     if (k === 'arrowright' || k === 'd') game.input.throttle = false;
     else if (k === 'arrowleft' || k === 'a') game.input.brake = false;
   });
+  // Keys held while unfocused never see their keyup.
+  window.addEventListener('blur', clearInputs);
   document.querySelector('#btn-pause').addEventListener('click', pauseGame);
   document.querySelector('#pause-resume').addEventListener('click', resumeGame);
   document.querySelector('#pause-restart').addEventListener('click', () => {
@@ -337,7 +381,10 @@ function setupInput() {
   });
   document.querySelector('#pause-quit').addEventListener('click', quitRun);
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) pauseGame();
+    if (document.hidden) {
+      clearInputs();
+      pauseGame();
+    }
   });
   window.addEventListener('pointerdown', () => game.audio.unlock(), { once: false });
 }

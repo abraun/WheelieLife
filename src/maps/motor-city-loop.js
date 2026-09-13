@@ -1,4 +1,4 @@
-// Map 4: Motor City Loop (Detroit) - Level 10.
+// Map 4: Motor City Loop (Detroit) - Level 8.
 // Warehouses, an assembly conveyor, oil slicks, octopus dumpster street art.
 
 import { mulberry32, hashStr, tower } from './mapUtils.js';
@@ -7,7 +7,7 @@ export const map = {
   id: 'motor-city-loop',
   name: 'Motor City Loop',
   subtitle: 'Detroit',
-  unlockLevel: 10,
+  unlockLevel: 8,
   blurb: 'Warehouse rows, a humming conveyor line, and oil slicks where the trucks drip.',
   eggName: 'Octopus dumpster street art',
   body: { type: 'sun', color: '#e8ddc8' },

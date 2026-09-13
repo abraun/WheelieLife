@@ -4,10 +4,11 @@
 // one pays score/coins scaled by the current combo multiplier and extends it.
 
 export const TRICKS = [
-  { id: 'knee', name: 'Knee Drag', short: 'KNEE', key: 'w', dur: 0.9, risk: 0.35, score: 120, coins: 14, pose: 'knee' },
-  { id: 'hand', name: 'Hand Drag', short: 'HAND', key: 's', dur: 1.1, risk: 0.5, score: 200, coins: 22, pose: 'hand' },
-  { id: 'seat', name: 'Seat Stand', short: 'SEAT', key: 'e', dur: 1.4, risk: 0.65, score: 320, coins: 34, pose: 'seat' },
-  { id: 'nohand', name: 'No-Hander', short: 'NO-HAND', key: 'r', dur: 1.8, risk: 0.8, score: 500, coins: 50, pose: 'nohand' },
+  { id: 'knock', name: 'Knee Knocker', short: 'KNOCK', key: 'q', dur: 0.7, risk: 0.22, score: 80, coins: 10, pose: 'knock' },
+  { id: 'knee', name: 'Knee Drag', short: 'KNEE', key: 'w', dur: 0.9, risk: 0.35, score: 130, coins: 15, pose: 'knee' },
+  { id: 'hand', name: 'Hand Drag', short: 'HAND', key: 'e', dur: 1.1, risk: 0.5, score: 210, coins: 24, pose: 'hand' },
+  { id: 'seat', name: 'Seat Stand', short: 'SEAT', key: 'r', dur: 1.4, risk: 0.65, score: 330, coins: 36, pose: 'seat' },
+  { id: 'nohand', name: 'No-Hander', short: 'NOHAND', key: 't', dur: 1.8, risk: 0.82, score: 520, coins: 54, pose: 'nohand' },
 ];
 
 export function trickById(id) {

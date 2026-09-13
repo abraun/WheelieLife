@@ -384,7 +384,7 @@ body.in-run .icon-btn { display: block; }
 }
 .tc-left, .tc-right { display: flex; flex-direction: column; gap: 10px; align-items: center; pointer-events: auto; }
 .tc-right { align-items: flex-end; }
-.tc-tricks { display: flex; gap: 8px; }
+.tc-tricks { display: flex; gap: 6px; }
 .tc-btn {
   border: 2px solid rgba(255, 255, 255, 0.35);
   background: rgba(15, 19, 26, 0.55);
@@ -405,7 +405,7 @@ body.in-run .icon-btn { display: block; }
 }
 .tc-btn.throttle { border-color: rgba(122, 224, 92, 0.6); }
 .tc-btn.brake { border-color: rgba(255, 92, 92, 0.6); }
-.tc-btn.trick { padding: 9px 12px; font-size: 11.5px; }
+.tc-btn.trick { padding: 8px 8px; font-size: 10px; border-radius: 12px; }
 
 @media (max-width: 860px) {
   .shop-layout, .garage-layout { flex-direction: column-reverse; }

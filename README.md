@@ -22,9 +22,11 @@ Any other static file server from the repo root also works
 
 - Throttle: `D` or `->` (on-screen button on touch devices)
 - Brake: `A` or `<-`
-- Both together: fine-balance stabilization
-- Tricks (while holding a wheelie): `W` Knee Drag, `S` Hand Drag, `E` Seat Stand, `R` No-Hander
-- Pause: `Esc` or `P`
+- Both together: fine-balance stabilization (stabilizes rotation, but bleeds
+  speed - pulse the throttle to stay up)
+- Tricks (while holding a wheelie): `Q` Knee Knocker, `W` Knee Drag,
+  `E` Hand Drag, `R` Seat Stand, `T` No-Hander
+- Pause: `Esc` or `P` - `Enter` on the results screen: ride again
 
 ## Structure
 
@@ -44,8 +46,15 @@ save/localStorageManager.js   persistence: coins, XP, bikes, cosmetics, pucks, b
 
 ## Design notes
 
+- Bikes are fictional lookalikes of real electric dirt bikes (light-bee trail
+  bikes, mid-size MX e-motos, fat-tire cruisers) with original names and paint.
 - Balance guardrails (spec): better bikes widen the sweet spot a few degrees,
   damp twitch, and soften crash penalties - they never remove the core challenge.
+  A gentle assist spring nudges you toward the sweet spot; past its edge,
+  gravity still wins and loop-outs are real.
+- Helmets and jerseys are buyable in the shop; decals are earned via pucks.
+- Leveling is intentionally slow: XP is quadratic in level, so early levels
+  come fast and the top maps are a real grind.
 - Maps are level-gated; the Championship Circuit also requires visiting all
   seven other cities once.
 - Each map hides 3 collectible pucks; all three unlock that city's cosmetic decal.

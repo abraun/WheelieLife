@@ -38,6 +38,8 @@ export class BikePhysics {
     this.zoneDampMul = 1;       // slick zones reduce damping
     this.terrainAngle = 0;      // slope under the wheels, deg
     this.shake = 0;             // screen shake impulse
+    this.throttleHeld = 0;      // smoothed throttle input, 0..1
+    this.brakeHeld = 0;         // smoothed brake input, 0..1
   }
 
   get speedFrac() {
@@ -61,9 +63,19 @@ export class BikePhysics {
     this.survivalTime += dt;
     this.noiseT += dt;
 
+    // --- Inputs ramp in over ~1/8 s: twitchy on/off snapping becomes deliberate ---
+    const ramp = (held, pressed) => {
+      const target = pressed ? 1 : 0;
+      const d = target - held;
+      const stepAmt = Math.min(Math.abs(d), dt * 8);
+      return held + Math.sign(d) * stepAmt;
+    };
+    this.throttleHeld = ramp(this.throttleHeld, input.throttle);
+    this.brakeHeld = ramp(this.brakeHeld, input.brake);
+
     // --- Longitudinal ---
-    if (input.throttle) this.speed += b.accel * dt;
-    if (input.brake) this.speed -= b.brake * dt;
+    if (this.throttleHeld > 0) this.speed += b.accel * this.throttleHeld * dt;
+    if (this.brakeHeld > 0) this.speed -= b.brake * this.brakeHeld * dt;
     // rolling drag + slope assist
     this.speed -= this.speed * 0.045 * dt;
     this.speed += -Math.sin(this.terrainAngle * Math.PI / 180) * 260 * dt;
@@ -78,15 +90,23 @@ export class BikePhysics {
 
     // --- Angular ---
     const ang = this.angle;
-    const g = 55 * Math.sin((ang - b.balancePoint) * Math.PI / 180);
+    const g = 44 * Math.sin((ang - b.balancePoint) * Math.PI / 180);
     let torque = g;
-    if (input.throttle) {
+    if (this.throttleHeld > 0) {
       // More speed => twitchier lift (start-slow mastery curve).
-      torque += b.lift * (1 + b.twitch * this.speedFrac * 1.1);
+      torque += b.lift * (1 + b.twitch * this.speedFrac * 1.1) * this.throttleHeld;
     }
-    if (input.brake) torque -= b.brakeTorque;
+    if (this.brakeHeld > 0) torque -= b.brakeTorque * this.brakeHeld;
+    // Gentle balance assist: a soft spring toward the sweet-spot center that
+    // only acts inside (and just outside) the band. Helps you hold a wheelie,
+    // never fights a real loop-out: past the band edge gravity wins.
+    const [alo, ahi] = this.sweet;
+    if (this.wheelied && ang > alo - 12 && ang < ahi + 12) {
+      const center = (alo + ahi) / 2;
+      torque -= (ang - center) * (0.3 + b.stability * 0.45);
+    }
     // Low-speed front fall: not rolling fast enough to hold it up.
-    if (this.speed < HOLD_SPEED && ang > 0) torque -= 34 * (1 - this.speed / HOLD_SPEED);
+    if (this.speed < HOLD_SPEED && ang > 0) torque -= 26 * (1 - this.speed / HOLD_SPEED);
     // Trick risk noise (deterministic-ish wobble, amplified mid-pose).
     if (risk && risk.noise > 0) {
       const n = Math.sin(this.noiseT * 9.3 + this.noiseSeed) * 0.6 +
@@ -97,7 +117,7 @@ export class BikePhysics {
     torque += this.zoneTorque;
     this.zoneTorque = 0;
 
-    let damp = 0.9 + b.stability * 1.15;
+    let damp = 1.05 + b.stability * 1.25;
     if (input.throttle && input.brake) damp *= 2.6;   // both-pedal fine balance
     damp *= this.zoneDampMul;
     this.zoneDampMul = 1;

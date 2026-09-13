@@ -1,6 +1,6 @@
 // Wheelie League - coin economy, XP, milestones and shop purchase logic (spec 3-5).
 
-import { BIKES, JERSEYS, bikeById, jerseyById } from './bikes.js';
+import { BIKES, JERSEYS, HELMETS, bikeById, jerseyById, helmetById } from './bikes.js';
 import { levelFromXp, xpForLevel, loadSave, persist } from '../save/localStorageManager.js';
 
 export const COINS_PER_METER_WHEELIE = 0.12;   // trickle while front wheel is up
@@ -87,10 +87,10 @@ export class RunBank {
 
 export function xpForRun(bank, survivalTime) {
   return Math.round(
-    bank.wheelieDistance * 0.6 +
-    bank.trickScore * 0.25 +
-    survivalTime * 2 +
-    bank.milestonesHit.length * 30
+    bank.wheelieDistance * 0.3 +
+    bank.trickScore * 0.12 +
+    survivalTime * 1.0 +
+    bank.milestonesHit.length * 20
   );
 }
 
@@ -127,16 +127,25 @@ export function purchaseBike(id) {
 }
 
 export function purchaseJersey(id) {
-  const j = jerseyById(id);
-  if (!j) return { ok: false, reason: 'Unknown jersey' };
+  return purchaseGear('jersey', id);
+}
+
+// kind: 'jersey' | 'helmet'
+export function purchaseGear(kind, id) {
+  const item = kind === 'helmet' ? helmetById(id) : jerseyById(id);
+  if (!item || item.id !== id) return { ok: false, reason: 'Unknown item' };
   const s = loadSave();
   if (s.ownedGear.includes(id)) return { ok: false, reason: 'Already owned' };
-  if (s.coins < j.cost) return { ok: false, reason: 'Not enough coins' };
-  s.coins -= j.cost;
+  if (s.coins < item.cost) return { ok: false, reason: 'Not enough coins' };
+  s.coins -= item.cost;
   s.ownedGear.push(id);
-  s.equipped.jersey = id;
+  s.equipped[kind] = id;
   persist();
   return { ok: true };
+}
+
+export function gearOwned(id) {
+  return loadSave().ownedGear.includes(id);
 }
 
 export function equip(itemType, id, mapId) {
@@ -144,9 +153,9 @@ export function equip(itemType, id, mapId) {
   if (itemType === 'bike') {
     if (!s.ownedBikes.includes(id)) return false;
     s.equipped.bike = id;
-  } else if (itemType === 'jersey') {
+  } else if (itemType === 'jersey' || itemType === 'helmet') {
     if (id && !s.ownedGear.includes(id)) return false;
-    s.equipped.jersey = id;
+    s.equipped[itemType] = id;
   } else if (itemType === 'decal') {
     if (id && !s.unlockedDecals.includes(id)) return false;
     s.equipped.decal = id;
@@ -169,4 +178,4 @@ export function unlockCheck(xp) {
   return { newLevel, entries: out };
 }
 
-export { BIKES, JERSEYS, xpForLevel };
+export { BIKES, JERSEYS, HELMETS, xpForLevel };

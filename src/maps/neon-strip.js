@@ -1,4 +1,4 @@
-// Map 7: Neon Strip (Las Vegas) - Level 28.
+// Map 7: Neon Strip (Las Vegas) - Level 18.
 // Casino marquees, fountain spray slicks, knight-helmet parade balloon (homage).
 
 import { mulberry32, hashStr, tower } from './mapUtils.js';
@@ -43,7 +43,7 @@ export const map = {
   id: 'neon-strip',
   name: 'Neon Strip',
   subtitle: 'Las Vegas',
-  unlockLevel: 28,
+  unlockLevel: 18,
   blurb: 'Marquee lights, fountain spray on the asphalt, and a parade balloon shaped like a knight helmet.',
   eggName: 'Knight-helmet parade balloon',
   body: { type: 'moon', color: '#e8e2f5' },

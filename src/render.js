@@ -7,8 +7,8 @@ import { MILESTONES } from './economy.js';
 
 const DESIGN_H = 800;      // render scale reference
 const CAM_OFFSET = 0.30;   // bike sits 30% from the left edge
-const WHEEL_R = 16;
-const WHEELBASE = 48;
+const WHEEL_R = 26;
+const WHEELBASE = 80;
 
 export class Renderer {
   constructor(canvas) {
@@ -434,13 +434,13 @@ export class Renderer {
     drawBike(ctx, loadout, null, phys.x / WHEEL_R + t * 4, 1);
     ctx.restore();
     // rider: tumbling ragdoll
-    const rx = this.worldToScreenX(phys.x + 40 + t * 190);
-    const ry = gy - Math.max(0, 120 * t * 3 - 0.5 * 900 * t * t) * s - 20 * s;
+    const rx = this.worldToScreenX(phys.x + 50 + t * 230);
+    const ry = gy - Math.max(0, 150 * t * 3 - 0.5 * 900 * t * t) * s - 24 * s;
     ctx.save();
-    ctx.translate(rx, Math.min(ry, gy - 14 * s));
+    ctx.translate(rx, Math.min(ry, gy - 18 * s));
     ctx.scale(s, s);
     ctx.rotate(t * 7.5);
-    drawRider(ctx, loadout.jersey, 'ragdoll', 0);
+    drawRider(ctx, loadout, 'ragdoll', t * 4);
     ctx.restore();
     // dust particles
     if (Math.random() < 0.5) {
@@ -515,221 +515,571 @@ function lampPostLocal(ctx, map, t, k) {
 }
 
 // ---- Bike + rider vector art (design units) ---------------------------------------
+// Origin: rear tire contact patch at (0,0). Rear wheel center (0,-WHEEL_R),
+// front wheel center (WHEELBASE,-WHEEL_R). Bodywork evokes real electric
+// dirt bikes (trellis-frame trail bikes, shrouded MX e-motos, fat cruisers).
 
 export function drawBike(ctx, loadout, pose, wheelSpin, wrecked) {
   const bike = loadout.bike;
   const P = bike.paint;
+  const R = WHEEL_R;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  // wheels
-  for (const wx of [0, WHEELBASE]) {
-    ctx.fillStyle = '#15171b';
-    ctx.beginPath();
-    ctx.arc(wx, -WHEEL_R, WHEEL_R, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#2c3037';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(wx, -WHEEL_R, WHEEL_R - 3.5, 0, Math.PI * 2);
-    ctx.stroke();
-    // spokes
-    ctx.strokeStyle = '#4a5058';
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < 4; i++) {
-      const a = wheelSpin + (i * Math.PI) / 4;
-      ctx.beginPath();
-      ctx.moveTo(wx - Math.cos(a) * (WHEEL_R - 4), -WHEEL_R - Math.sin(a) * (WHEEL_R - 4));
-      ctx.lineTo(wx + Math.cos(a) * (WHEEL_R - 4), -WHEEL_R + Math.sin(a) * (WHEEL_R - 4));
-      ctx.stroke();
-    }
-  }
+  drawWheel(ctx, 0, -R, wheelSpin, bike.look, P, true);
+  drawWheel(ctx, WHEELBASE, -R, wheelSpin, bike.look, P, false);
 
-  // frame
-  ctx.strokeStyle = P.frame;
-  ctx.lineWidth = 5;
+  // swingarm: rear hub to pivot
+  ctx.strokeStyle = '#3a3f47';
+  ctx.lineWidth = 6;
   ctx.beginPath();
-  ctx.moveTo(0, -WHEEL_R);
-  ctx.lineTo(16, -22);
-  ctx.lineTo(30, -24);
-  ctx.moveTo(16, -22);
-  ctx.lineTo(10, -34);
-  ctx.moveTo(30, -24);
-  ctx.lineTo(WHEELBASE, -WHEEL_R);
-  ctx.stroke();
-  // fork + handlebar
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(WHEELBASE, -WHEEL_R);
-  ctx.lineTo(WHEELBASE - 8, -34);
-  ctx.lineTo(WHEELBASE - 2, -38);
-  ctx.stroke();
-  // swingarm
-  ctx.beginPath();
-  ctx.moveTo(0, -WHEEL_R);
-  ctx.lineTo(14, -24);
+  ctx.moveTo(2, -R + 2);
+  ctx.lineTo(30, -44);
   ctx.stroke();
 
-  // seat + tank
-  ctx.fillStyle = P.seat;
-  rrFill(ctx, 4, -38, 16, 6, 3);
-  ctx.fillStyle = P.body;
-  rrFill(ctx, 18, -34, 20, 9, 4);
-  ctx.fillStyle = P.accent;
-  ctx.fillRect(20, -32, 16, 2);
+  if (bike.look === 'fat') drawFatBody(ctx, bike, P);
+  else if (bike.look === 'mx') drawMxBody(ctx, bike, P);
+  else drawDirtBody(ctx, bike, P);
 
-  // fender: zamboni-brush special
+  // fender specials
   if (bike.fender === 'zamboni') {
     ctx.fillStyle = '#dfe8f5';
-    rrFill(ctx, -8, -34, 22, 12, 6);
+    rrFill(ctx, -16, -66, 40, 16, 7);
     ctx.fillStyle = '#8fb0d8';
-    ctx.fillRect(-6, -26, 18, 3);
+    ctx.fillRect(-12, -56, 32, 4);
   } else if (bike.fender === 'chrome') {
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    rrFill(ctx, -6, -32, 18, 9, 4);
-  } else {
-    ctx.fillStyle = P.frame;
-    rrFill(ctx, -6, -30, 16, 7, 3);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    rrFill(ctx, -14, -62, 36, 14, 6);
+    ctx.strokeStyle = 'rgba(120,130,145,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(-10, -58, 28, 6);
   }
 
-  // decal sticker
+  // decal sticker on the battery/body
   if (loadout.decal) {
     ctx.fillStyle = loadout.decal.color;
     ctx.beginPath();
-    ctx.arc(24, -30, 3.4, 0, Math.PI * 2);
+    ctx.arc(46, -52, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(24, -30, 1.4, 0, Math.PI * 2);
+    ctx.arc(46, -52, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // grip tape pattern on the deck (easter egg detail)
+  // grip tape / league details near the pegs
   if (bike.gripTape === 'hockeystick') {
     ctx.strokeStyle = '#e8e8e8';
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 2;
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.moveTo(6 + i * 5, -37);
-      ctx.lineTo(9 + i * 5, -32);
+      ctx.moveTo(24 + i * 6, -52);
+      ctx.lineTo(28 + i * 6, -44);
       ctx.stroke();
     }
   } else if (bike.gripTape === 'gold') {
-    ctx.fillStyle = 'rgba(255,226,122,0.7)';
-    ctx.fillRect(5, -36, 14, 1.6);
+    ctx.fillStyle = 'rgba(255,226,122,0.8)';
+    ctx.fillRect(26, -50, 26, 2.4);
   }
 
-  if (!wrecked) drawRider(ctx, loadout.jersey, pose, 0);
+  if (!wrecked) drawRider(ctx, loadout, pose, 0);
 }
 
-function drawRider(ctx, jersey, pose, variant) {
-  const J = jersey || { torso: '#8a9099', trim: '#d7dbe0', helmet: '#20242a' };
-  ctx.lineCap = 'round';
-  // legs (dark pants)
-  ctx.strokeStyle = '#1c1f24';
-  ctx.lineWidth = 5.5;
-  const hips = { x: 10, y: -40 };
-  if (pose === 'ragdoll') {
-    const flail = Math.sin(variant * 9) * 6;
+function drawWheel(ctx, cx, cy, spin, look, P, rear) {
+  const fat = look === 'fat';
+  const tireW = fat ? 12 : 8;
+  // tire
+  ctx.fillStyle = '#15171b';
+  ctx.beginPath();
+  ctx.arc(cx, cy, WHEEL_R, 0, Math.PI * 2);
+  ctx.arc(cx, cy, WHEEL_R - tireW, 0, Math.PI * 2, true);
+  ctx.fill();
+  // knobs (off-road tread)
+  if (look !== 'fat') {
+    ctx.fillStyle = '#15171b';
+    for (let i = 0; i < 12; i++) {
+      const a = spin + (i * Math.PI * 2) / 12;
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * (WHEEL_R - 1.5), cy + Math.sin(a) * (WHEEL_R - 1.5));
+      ctx.rotate(a);
+      ctx.fillRect(-2.5, -2, 5, 4);
+      ctx.restore();
+    }
+  }
+  // rim
+  ctx.strokeStyle = '#454b54';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, WHEEL_R - tireW, 0, Math.PI * 2);
+  ctx.stroke();
+  if (look === 'fat') {
+    // thick mag spokes
+    ctx.strokeStyle = '#2c3037';
+    ctx.lineWidth = 5;
+    for (let i = 0; i < 3; i++) {
+      const a = spin + (i * Math.PI * 2) / 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * (WHEEL_R - tireW - 2), cy + Math.sin(a) * (WHEEL_R - tireW - 2));
+      ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = '#4a5058';
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 8; i++) {
+      const a = spin + (i * Math.PI) / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - Math.cos(a) * (WHEEL_R - tireW - 2), cy - Math.sin(a) * (WHEEL_R - tireW - 2));
+      ctx.lineTo(cx + Math.cos(a) * (WHEEL_R - tireW - 2), cy + Math.sin(a) * (WHEEL_R - tireW - 2));
+      ctx.stroke();
+    }
+  }
+  // brake disc
+  ctx.strokeStyle = '#8d939c';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx + (rear ? 0 : 6), cy, 9, 0, Math.PI * 2);
+  ctx.stroke();
+  // caliper
+  ctx.fillStyle = P.accent;
+  rrFill(ctx, cx + (rear ? 8 : 14), cy - 7, 7, 13, 3);
+  // hub motor (rear): the signature e-moto cylinder
+  if (rear) {
+    ctx.fillStyle = '#2a2e35';
     ctx.beginPath();
-    ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(hips.x - 8 + flail, hips.y + 14);
-    ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(hips.x + 10 - flail, hips.y + 12);
+    ctx.arc(cx, cy, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#3d434c';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#565d68';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 7, 0.3, 2.4);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = '#2a2e35';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Trail e-moto: trellis frame, battery spine, flat bench seat, high fender,
+// front number plate (the "light bee" silhouette).
+function drawDirtBody(ctx, bike, P) {
+  // trellis frame
+  ctx.strokeStyle = P.frame;
+  ctx.lineWidth = 5.5;
+  ctx.beginPath();
+  ctx.moveTo(30, -44);
+  ctx.lineTo(22, -62);
+  ctx.lineTo(48, -60);
+  ctx.moveTo(30, -44);
+  ctx.lineTo(52, -50);
+  ctx.moveTo(52, -50);
+  ctx.lineTo(70, -50);
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(30, -44);
+  ctx.lineTo(48, -50);
+  ctx.moveTo(40, -47);
+  ctx.lineTo(34, -58);
+  ctx.stroke();
+
+  // battery spine (body color, accent stripe)
+  ctx.fillStyle = P.body;
+  rrFill(ctx, 24, -58, 32, 11, 4);
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(28, -55, 24, 2.4);
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(24, -52, 32, 2);
+
+  // rear shock
+  ctx.strokeStyle = '#c9a227';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(12, -34);
+  ctx.lineTo(28, -50);
+  ctx.stroke();
+  ctx.strokeStyle = '#8d939c';
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 4; i++) {
+    const t0 = i / 4, t1 = (i + 0.5) / 4;
+    ctx.beginPath();
+    ctx.moveTo(12 + (28 - 12) * t0, -34 + (-50 + 34) * t0);
+    ctx.lineTo(12 + (28 - 12) * t1, -34 + (-50 + 34) * t1);
+    ctx.stroke();
+  }
+
+  // seat bench + tail
+  ctx.fillStyle = P.seat;
+  rrFill(ctx, 10, -64, 34, 7, 3.5);
+  rrFill(ctx, 8, -62, 8, 5, 2.5);
+
+  // inverted fork (gold two-tone) + bar
+  ctx.strokeStyle = '#565d68';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(WHEELBASE, -WHEEL_R);
+  ctx.lineTo(72, -58);
+  ctx.stroke();
+  ctx.strokeStyle = P.fork || '#c9a227';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(75, -40);
+  ctx.lineTo(70, -60);
+  ctx.stroke();
+  ctx.strokeStyle = '#22262b';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(70, -60);
+  ctx.lineTo(62, -68);
+  ctx.stroke();
+
+  // high front fender
+  ctx.fillStyle = P.body;
+  ctx.save();
+  ctx.translate(78, -58);
+  ctx.rotate(-0.12);
+  rrFill(ctx, -10, 0, 26, 6, 3);
+  ctx.restore();
+
+  // front number plate
+  ctx.fillStyle = '#e8e8e8';
+  rrFill(ctx, 76, -58, 9, 18, 3);
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(78, -50, 5, 2);
+  void bike;
+}
+
+// Shrouded motocross e-moto: tank shrouds, low fender, mid drive unit.
+function drawMxBody(ctx, bike, P) {
+  // main frame spine
+  ctx.strokeStyle = P.frame;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(28, -42);
+  ctx.lineTo(40, -58);
+  ctx.lineTo(58, -60);
+  ctx.moveTo(58, -60);
+  ctx.lineTo(72, -50);
+  ctx.stroke();
+
+  // mid drive unit
+  ctx.fillStyle = '#2a2e35';
+  rrFill(ctx, 32, -44, 18, 12, 4);
+  ctx.fillStyle = '#3d434c';
+  ctx.fillRect(35, -41, 12, 3);
+
+  // battery in the spine
+  ctx.fillStyle = P.body;
+  rrFill(ctx, 30, -60, 34, 13, 5);
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(34, -56, 26, 2.6);
+
+  // radiator shrouds (wings)
+  ctx.fillStyle = P.body;
+  ctx.beginPath();
+  ctx.moveTo(46, -62);
+  ctx.lineTo(70, -56);
+  ctx.lineTo(62, -46);
+  ctx.lineTo(44, -50);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = P.accent;
+  ctx.beginPath();
+  ctx.moveTo(52, -60);
+  ctx.lineTo(67, -55);
+  ctx.lineTo(60, -49);
+  ctx.lineTo(48, -52);
+  ctx.closePath();
+  ctx.fill();
+
+  // seat long flat
+  ctx.fillStyle = P.seat;
+  rrFill(ctx, 12, -64, 34, 7, 3.5);
+
+  // fork (gold legs) + bar + front disc guard
+  ctx.strokeStyle = '#565d68';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(WHEELBASE, -WHEEL_R);
+  ctx.lineTo(73, -56);
+  ctx.stroke();
+  ctx.strokeStyle = P.fork || '#c9a227';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(76, -38);
+  ctx.lineTo(71, -58);
+  ctx.stroke();
+  ctx.strokeStyle = '#22262b';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(71, -58);
+  ctx.lineTo(62, -66);
+  ctx.stroke();
+
+  // low front fender hugging the wheel
+  ctx.fillStyle = P.body;
+  ctx.save();
+  ctx.translate(WHEELBASE, -WHEEL_R);
+  ctx.beginPath();
+  ctx.arc(0, 0, WHEEL_R + 5, -Math.PI * 0.75, -Math.PI * 0.2);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = P.body;
+  ctx.stroke();
+  ctx.restore();
+
+  // number plate
+  ctx.fillStyle = '#e8e8e8';
+  rrFill(ctx, 77, -56, 8, 16, 3);
+  ctx.fillStyle = P.accent;
+  ctx.fillRect(79, -49, 4, 2);
+}
+
+// Fat-tire street cruiser: long bench, chunky tank box, basher plate.
+function drawFatBody(ctx, bike, P) {
+  // frame
+  ctx.strokeStyle = P.frame;
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(26, -42);
+  ctx.lineTo(34, -60);
+  ctx.lineTo(58, -62);
+  ctx.moveTo(58, -62);
+  ctx.lineTo(74, -48);
+  ctx.stroke();
+
+  // chunky tank box
+  ctx.fillStyle = P.body;
+  rrFill(ctx, 32, -66, 32, 15, 6);
+  ctx.fillStyle = P.accent;
+  rrFill(ctx, 37, -62, 22, 5, 2.5);
+
+  // long low bench
+  ctx.fillStyle = P.seat;
+  rrFill(ctx, 10, -66, 26, 8, 4);
+
+  // basher plate under the motor
+  ctx.fillStyle = '#3a3f47';
+  rrFill(ctx, 26, -40, 30, 6, 3);
+
+  // mini fat fender + bar
+  ctx.strokeStyle = '#565d68';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(WHEELBASE, -WHEEL_R);
+  ctx.lineTo(72, -54);
+  ctx.stroke();
+  ctx.strokeStyle = P.fork || '#3a3f47';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(76, -36);
+  ctx.lineTo(70, -56);
+  ctx.stroke();
+  ctx.strokeStyle = '#22262b';
+  ctx.lineWidth = 4.5;
+  ctx.beginPath();
+  ctx.moveTo(70, -56);
+  ctx.lineTo(60, -62);
+  ctx.moveTo(70, -56);
+  ctx.lineTo(74, -64);
+  ctx.stroke();
+
+  // stubby fender
+  ctx.fillStyle = P.frame;
+  ctx.save();
+  ctx.translate(WHEELBASE, -WHEEL_R);
+  ctx.beginPath();
+  ctx.arc(0, 0, WHEEL_R + 6, -Math.PI * 0.7, -Math.PI * 0.25);
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.restore();
+  void bike;
+}
+
+function drawRider(ctx, loadout, pose, variant) {
+  const J = (loadout && loadout.jersey) || { torso: '#8a9099', trim: '#d7dbe0' };
+  const helmet = (loadout && loadout.helmet) || null;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const hips = { x: 20, y: -66 };
+  const peg = { x: 30, y: -44 };
+  const bar = { x: 64, y: -66 };
+
+  if (pose === 'ragdoll') {
+    const flail = Math.sin(variant * 9) * 8;
+    // legs
+    ctx.strokeStyle = '#1c1f24';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-12 + flail, 16);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(12 - flail, 14);
     ctx.stroke();
     // torso
     ctx.strokeStyle = J.torso;
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 10;
     ctx.beginPath();
-    ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(hips.x + 4, hips.y - 13);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(5, -18);
+    ctx.stroke();
+    // trim stripe
+    ctx.strokeStyle = J.trim;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(1, -4);
+    ctx.lineTo(6, -18);
     ctx.stroke();
     // arms flail
     ctx.strokeStyle = J.torso;
-    ctx.lineWidth = 4.5;
+    ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.moveTo(hips.x + 3, hips.y - 11);
-    ctx.lineTo(hips.x + 14 + flail, hips.y - 4);
-    ctx.moveTo(hips.x + 3, hips.y - 11);
-    ctx.lineTo(hips.x - 6 - flail, hips.y - 18);
+    ctx.moveTo(4, -15);
+    ctx.lineTo(18 + flail, -6);
+    ctx.moveTo(4, -15);
+    ctx.lineTo(-8 - flail, -24);
     ctx.stroke();
-    ctx.fillStyle = J.helmet;
-    ctx.beginPath();
-    ctx.arc(hips.x + 5, hips.y - 20, 5.5, 0, Math.PI * 2);
-    ctx.fill();
+    drawHelmet(ctx, 7, -28, 8.5, helmet);
     return;
   }
-  if (pose === 'seat') {
-    // standing on the pegs
-    ctx.beginPath();
-    ctx.moveTo(hips.x, hips.y + 4);
-    ctx.lineTo(14, -26);
-    ctx.moveTo(hips.x, hips.y + 4);
-    ctx.lineTo(20, -26);
-    ctx.stroke();
-  } else if (pose === 'knee') {
+
+  // legs (dark pants) to the pegs; trick poses move them
+  ctx.strokeStyle = '#1c1f24';
+  ctx.lineWidth = 7;
+  if (pose === 'knee' || pose === 'knock') {
+    // one leg on the peg, the other hangs out to the side
     ctx.beginPath();
     ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(20, -26);
+    ctx.lineTo(peg.x, peg.y);
     ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(0, -14);   // knee out dragging
-    ctx.lineTo(-2, -6);
+    if (pose === 'knock') {
+      // knee punches forward toward the bar, foot back
+      ctx.lineTo(52, -50);
+      ctx.lineTo(58, -34);
+    } else {
+      // knee-out drag behind
+      ctx.lineTo(-2, -44);
+      ctx.lineTo(-6, -12);
+    }
     ctx.stroke();
+  } else if (pose === 'seat') {
+    // standing tall on the pegs
+    const stand = { x: 22, y: -74 };
+    ctx.beginPath();
+    ctx.moveTo(stand.x, stand.y);
+    ctx.lineTo(peg.x - 4, peg.y);
+    ctx.moveTo(stand.x, stand.y);
+    ctx.lineTo(peg.x + 4, peg.y);
+    ctx.stroke();
+    hips.x = stand.x; hips.y = stand.y;
   } else {
     ctx.beginPath();
     ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(14, -26);
+    ctx.lineTo(peg.x - 3, peg.y);
     ctx.moveTo(hips.x, hips.y);
-    ctx.lineTo(18, -26);
+    ctx.lineTo(peg.x + 4, peg.y);
     ctx.stroke();
   }
+
   // torso leaning forward
-  const shoulder = pose === 'seat' ? { x: 12, y: -62 } : { x: 18, y: -54 };
+  const shoulder = pose === 'seat' ? { x: hips.x + 4, y: hips.y - 30 } : { x: hips.x + 8, y: hips.y - 26 };
   ctx.strokeStyle = J.torso;
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 10;
   ctx.beginPath();
   ctx.moveTo(hips.x, hips.y);
   ctx.lineTo(shoulder.x, shoulder.y);
   ctx.stroke();
   // trim stripe
   ctx.strokeStyle = J.trim;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.moveTo(hips.x + 1, hips.y - 3);
-  ctx.lineTo(shoulder.x + 1, shoulder.y - 3);
+  ctx.moveTo(hips.x + 2, hips.y - 4);
+  ctx.lineTo(shoulder.x + 2, shoulder.y - 4);
   ctx.stroke();
+
   // arms
-  ctx.lineWidth = 4.5;
   ctx.strokeStyle = J.torso;
+  ctx.lineWidth = 6;
   if (pose === 'nohand') {
+    // both arms thrown up
     ctx.beginPath();
     ctx.moveTo(shoulder.x, shoulder.y);
-    ctx.lineTo(shoulder.x - 4, shoulder.y - 14);
+    ctx.lineTo(shoulder.x - 6, shoulder.y - 20);
     ctx.moveTo(shoulder.x, shoulder.y);
-    ctx.lineTo(shoulder.x + 8, shoulder.y - 12);
+    ctx.lineTo(shoulder.x + 12, shoulder.y - 18);
     ctx.stroke();
   } else if (pose === 'hand') {
-    // one hand dragging low, one on the bar
+    // one hand dragging on the ground, one on the bar
     ctx.beginPath();
     ctx.moveTo(shoulder.x, shoulder.y);
-    ctx.lineTo(6, -8);
-    ctx.stroke();
-    ctx.beginPath();
+    ctx.lineTo(34, -6);
     ctx.moveTo(shoulder.x, shoulder.y);
-    ctx.lineTo(WHEELBASE - 2, -38);
+    ctx.lineTo(bar.x, bar.y);
     ctx.stroke();
   } else {
     ctx.beginPath();
     ctx.moveTo(shoulder.x, shoulder.y);
-    ctx.lineTo(WHEELBASE - 2, -38);
+    ctx.lineTo(bar.x, bar.y);
     ctx.stroke();
   }
-  // helmet + visor
-  ctx.fillStyle = J.helmet;
+
+  // helmet sits above the shoulders
+  drawHelmet(ctx, shoulder.x + 7, shoulder.y - 12, 9.5, helmet);
+}
+
+function drawHelmet(ctx, x, y, r, helmet) {
+  const H = helmet || { base: '#20242a', accent: '#20242a', visor: 'rgba(160,200,230,0.8)' };
+  // shell
+  ctx.fillStyle = H.base;
   ctx.beginPath();
-  ctx.arc(shoulder.x + 4, shoulder.y - 8, 6.5, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = 'rgba(160,200,230,0.8)';
-  ctx.fillRect(shoulder.x + 4, shoulder.y - 10, 7, 3);
+  // finish effects
+  if (H.finish === 'chrome') {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.3, y - r * 0.35, r * 0.38, r * 0.22, -0.7, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (H.finish === 'gold') {
+    ctx.fillStyle = 'rgba(255,240,180,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.3, y - r * 0.35, r * 0.36, r * 0.2, -0.7, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (H.finish === 'mirror') {
+    ctx.fillStyle = 'rgba(120,210,255,0.35)';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // center stripe
+  if (H.stripe) {
+    ctx.strokeStyle = H.stripe;
+    ctx.lineWidth = r * 0.34;
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.15, y - r * 0.95);
+    ctx.quadraticCurveTo(x + r * 0.25, y, x - r * 0.15, y + r * 0.95);
+    ctx.stroke();
+  }
+  // accent trim
+  ctx.strokeStyle = H.accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, r - 1, Math.PI * 0.15, Math.PI * 0.85);
+  ctx.stroke();
+  // visor opening
+  ctx.fillStyle = H.visor;
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.45, y - r * 0.1, r * 0.5, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(20,24,30,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(x + r * 0.55, y - r * 0.05, r * 0.32, r * 0.2, 0, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function rrFill(ctx, x, y, w, h, r) {

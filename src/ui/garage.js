@@ -1,6 +1,6 @@
-// Wheelie League - garage/loadout: equip owned bike, jersey, decal.
+// Wheelie League - garage/loadout: equip owned bike, jersey, helmet, decal.
 
-import { BIKES, JERSEYS, DECALS, sweetSpot } from '../bikes.js';
+import { BIKES, JERSEYS, HELMETS, DECALS, sweetSpot } from '../bikes.js';
 import { equip } from '../economy.js';
 import { loadSave } from '../../save/localStorageManager.js';
 import { drawBike } from '../render.js';
@@ -40,13 +40,13 @@ function renderGarage(game) {
     bikeCol.appendChild(el('p', 'muted', 'Only the Starter Dirt Bike yet. The shop has more.'));
   }
 
-  const jerseyCol = qs('#garage-jerseys');
-  jerseyCol.innerHTML = '<h3>Jerseys</h3>';
+  const gearCol = qs('#garage-gear');
+  gearCol.innerHTML = '<h3>Jerseys</h3>';
   const jerseyList = [{ id: null, name: 'No jersey (plain gear)', colors: null }].concat(JERSEYS.filter((j) => save.ownedGear.includes(j.id)));
   for (const j of jerseyList) {
     const row = el('div', `loadout-row ${save.equipped.jersey === j.id ? 'equipped' : ''}`);
     const sw = j.colors
-      ? `<span class="mini-swatch"><span style="background:${j.colors.torso}"></span><span style="background:${j.colors.helmet}"></span></span>`
+      ? `<span class="mini-swatch"><span style="background:${j.colors.torso}"></span><span style="background:${j.colors.trim}"></span></span>`
       : '<span class="mini-swatch"><span style="background:#666"></span></span>';
     row.innerHTML = `<div class="row-title">${sw} ${j.name}</div>
       <button class="btn small ${save.equipped.jersey === j.id ? 'disabled' : 'primary'}">${save.equipped.jersey === j.id ? 'Worn' : 'Wear'}</button>`;
@@ -55,7 +55,22 @@ function renderGarage(game) {
       game.audio.click();
       renderGarage(game);
     });
-    jerseyCol.appendChild(row);
+    gearCol.appendChild(row);
+  }
+
+  const helHeader = el('h3', null, 'Helmets');
+  helHeader.style.marginTop = '16px';
+  gearCol.appendChild(helHeader);
+  for (const h of HELMETS.filter((x) => save.ownedGear.includes(x.id))) {
+    const row = el('div', `loadout-row ${save.equipped.helmet === h.id ? 'equipped' : ''}`);
+    row.innerHTML = `<div class="row-title"><span class="mini-swatch"><span style="background:${h.base}"></span><span style="background:${h.visor}"></span></span> ${h.name}</div>
+      <button class="btn small ${save.equipped.helmet === h.id ? 'disabled' : 'primary'}">${save.equipped.helmet === h.id ? 'Worn' : 'Wear'}</button>`;
+    row.querySelector('button').addEventListener('click', () => {
+      equip('helmet', h.id);
+      game.audio.click();
+      renderGarage(game);
+    });
+    gearCol.appendChild(row);
   }
 
   const decalCol = qs('#garage-decals');
@@ -86,6 +101,7 @@ function startGaragePreview(game, save) {
   const loadout = {
     bike: game.bikeById(save.equipped.bike),
     jersey: JERSEYS.find((j) => j.id === save.equipped.jersey) || null,
+    helmet: HELMETS.find((h) => h.id === save.equipped.helmet) || null,
     decal: DECALS.find((d) => d.id === save.equipped.decal) || null,
   };
   const [lo, hi] = sweetSpot(loadout.bike);
@@ -105,8 +121,8 @@ function startGaragePreview(game, save) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#141922';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.translate(canvas.width * 0.42, canvas.height * 0.82);
-    const sc = canvas.height / 110;
+    ctx.translate(canvas.width * 0.38, canvas.height * 0.86);
+    const sc = canvas.height / 190;
     ctx.scale(sc, sc);
     ctx.rotate(-angle * Math.PI / 180);
     drawBike(ctx, loadout, null, t * 6, 0);

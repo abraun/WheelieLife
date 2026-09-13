@@ -1,4 +1,4 @@
-// Map 5: Windy Grid (Chicago) - Level 15.
+// Map 5: Windy Grid (Chicago) - Level 11.
 // Elevated train overhead, grid gusts, giant wind sock, red-black bunting.
 
 import { mulberry32, hashStr, tower, buntingLine } from './mapUtils.js';
@@ -7,7 +7,7 @@ export const map = {
   id: 'windy-grid',
   name: 'Windy Grid',
   subtitle: 'Chicago',
-  unlockLevel: 15,
+  unlockLevel: 11,
   blurb: 'Ride under the elevated tracks while the lake wind tries to loop you out.',
   eggName: 'A giant wind sock',
   body: { type: 'sun', color: '#e8e2d0' },

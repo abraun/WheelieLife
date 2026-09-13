@@ -1,4 +1,4 @@
-// Map 6: Frontier Flats (Edmonton / Western Canada) - Level 21.
+// Map 6: Frontier Flats (Edmonton / Western Canada) - Level 14.
 // Prairie-wide streets, oil derricks, northern-lights night sky.
 
 import { mulberry32, hashStr, tower } from './mapUtils.js';
@@ -48,7 +48,7 @@ export const map = {
   id: 'frontier-flats',
   name: 'Frontier Flats',
   subtitle: 'Western Canada',
-  unlockLevel: 21,
+  unlockLevel: 14,
   blurb: 'Wide-open prairie streets under a northern-lights sky, derricks nodding on the horizon.',
   eggName: 'Nodding oil derricks',
   body: { type: 'moon', color: '#dfe8f5' },

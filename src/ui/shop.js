@@ -1,7 +1,7 @@
 // Wheelie League - shop screen: bike tiers + cosmetics with live preview.
 
-import { BIKES, JERSEYS, DECALS, bikeById, jerseyById, decalById, sweetSpot } from '../bikes.js';
-import { purchaseBike, purchaseJersey, equip, bikeAvailable } from '../economy.js';
+import { BIKES, JERSEYS, HELMETS, DECALS, bikeById, jerseyById, helmetById, decalById, sweetSpot } from '../bikes.js';
+import { purchaseBike, purchaseGear, equip, bikeAvailable } from '../economy.js';
 import { loadSave, levelFromXp, persist } from '../../save/localStorageManager.js';
 import { BikePhysics } from '../physics.js';
 import { drawBike } from '../render.js';
@@ -75,22 +75,46 @@ export function renderShop(game) {
     }
     startPreview(game, bike);
   } else {
-    // cosmetics tab
-    let selected = shopState.selectedJersey && jerseyById(shopState.selectedJersey) ? shopState.selectedJersey : (save.equipped.jersey || 'jersey-neutral');
-    for (const j of JERSEYS) {
-      const owned = save.ownedGear.includes(j.id);
-      const card = el('div', `card jersey-card ${owned ? '' : 'locked'} ${selected === j.id ? 'selected' : ''}`);
+    // gear + decals tab
+    let selected = shopState.selectedGear && (jerseyById(shopState.selectedGear) || helmetById(shopState.selectedGear)) ? shopState.selectedGear : (save.equipped.helmet || save.equipped.jersey || 'helmet-plain');
+    shopState.selectedGear = selected;
+
+    // helmets (buyable)
+    const helHeader = el('div', 'section-note', 'Helmets - buy them, wear them, loop out in style.');
+    grid.appendChild(helHeader);
+    for (const h of HELMETS) {
+      const owned = save.ownedGear.includes(h.id);
+      const card = el('div', `card jersey-card ${owned ? '' : 'locked'} ${selected === h.id ? 'selected' : ''}`);
       card.innerHTML = `
-        <div class="jersey-swatch"><span style="background:${j.colors.torso}"></span><span style="background:${j.colors.trim}"></span><span style="background:${j.colors.helmet}"></span></div>
-        <div class="card-title">${j.name}</div>
-        <div class="card-flavor">${j.flavor}</div>
-        <div class="card-foot"><span class="price">${owned ? (save.equipped.jersey === j.id ? 'EQUIPPED' : 'OWNED') : fmtCoins(j.cost) + ' coins'}</span></div>`;
+        <div class="jersey-swatch"><span style="background:${h.base}"></span><span style="background:${h.visor}"></span><span style="background:${h.accent}"></span></div>
+        <div class="card-title">${h.name}</div>
+        <div class="card-flavor">${h.flavor}</div>
+        <div class="card-foot"><span class="price">${owned ? (save.equipped.helmet === h.id ? 'EQUIPPED' : 'OWNED') : (h.cost === 0 ? 'FREE' : fmtCoins(h.cost) + ' coins')}</span></div>`;
       card.addEventListener('click', () => {
-        shopState.selectedJersey = j.id;
+        shopState.selectedGear = h.id;
         renderShop(game);
       });
       grid.appendChild(card);
     }
+
+    // jerseys (buyable)
+    const jerHeader = el('div', 'section-note', 'Jerseys - team colors from every city on the circuit.');
+    grid.appendChild(jerHeader);
+    for (const j of JERSEYS) {
+      const owned = save.ownedGear.includes(j.id);
+      const card = el('div', `card jersey-card ${owned ? '' : 'locked'} ${selected === j.id ? 'selected' : ''}`);
+      card.innerHTML = `
+        <div class="jersey-swatch"><span style="background:${j.colors.torso}"></span><span style="background:${j.colors.trim}"></span></div>
+        <div class="card-title">${j.name}</div>
+        <div class="card-flavor">${j.flavor}</div>
+        <div class="card-foot"><span class="price">${owned ? (save.equipped.jersey === j.id ? 'EQUIPPED' : 'OWNED') : (j.cost === 0 ? 'FREE' : fmtCoins(j.cost) + ' coins')}</span></div>`;
+      card.addEventListener('click', () => {
+        shopState.selectedGear = j.id;
+        renderShop(game);
+      });
+      grid.appendChild(card);
+    }
+
     // puck-earned decals
     const decalHeader = el('div', 'section-note', 'Decals are not bought - collect all 3 hidden pucks in a city to earn its decal.');
     grid.appendChild(decalHeader);
@@ -107,31 +131,37 @@ export function renderShop(game) {
       });
       grid.appendChild(card);
     }
-    const j = jerseyById(selected);
+
     const foot = qs('#shop-action');
     foot.innerHTML = '';
-    if (j) {
-      if (save.ownedGear.includes(j.id)) {
-        if (save.equipped.jersey === j.id) {
+    const isHelmet = !!helmetById(selected) && selected.startsWith('helmet-');
+    const item = isHelmet ? helmetById(selected) : jerseyById(selected);
+    const kind = isHelmet ? 'helmet' : 'jersey';
+    if (item) {
+      const equipType = isHelmet ? save.equipped.helmet : save.equipped.jersey;
+      if (save.ownedGear.includes(item.id)) {
+        if (equipType === item.id) {
           foot.appendChild(el('button', 'btn primary disabled', 'Equipped'));
         } else {
           const b = el('button', 'btn primary', 'Equip');
-          b.addEventListener('click', () => { equip('jersey', j.id); game.audio.click(); renderShop(game); });
+          b.addEventListener('click', () => { equip(kind, item.id); game.audio.click(); renderShop(game); });
           foot.appendChild(b);
         }
       } else {
-        const b = el('button', 'btn primary buy', `Buy - ${fmtCoins(j.cost)}`);
+        const b = el('button', 'btn primary buy', `Buy - ${fmtCoins(item.cost)}`);
         b.addEventListener('click', () => {
-          const r = purchaseJersey(j.id);
+          const r = purchaseGear(kind, item.id);
           shopToast(game, r);
           if (r.ok) game.audio.bigCoin();
           renderShop(game);
         });
         foot.appendChild(b);
       }
-      startPreview(game, game.bikeById(save.equipped.bike), j);
+      const previewJersey = isHelmet ? jerseyById(save.equipped.jersey) : item;
+      const previewHelmet = isHelmet ? item : helmetById(save.equipped.helmet);
+      startPreview(game, game.bikeById(save.equipped.bike), previewJersey, previewHelmet);
     } else {
-      startPreview(game, game.bikeById(save.equipped.bike), null);
+      startPreview(game, game.bikeById(save.equipped.bike), null, null);
     }
   }
 }
@@ -153,10 +183,10 @@ function shopToast(game, result) {
 
 // ---- Live preview: a real physics sim with an auto-balance bot ---------------
 
-const shopState = { selectedBike: null, selectedJersey: null };
+const shopState = { selectedBike: null, selectedGear: null };
 let previewRAF = null;
 
-function startPreview(game, bike, jersey) {
+function startPreview(game, bike, jersey, helmet) {
   stopPreview();
   const canvas = qs('#shop-preview');
   const ctx = canvas.getContext('2d');
@@ -167,6 +197,7 @@ function startPreview(game, bike, jersey) {
   const loadout = {
     bike,
     jersey: jersey || null,
+    helmet: helmet || null,
     decal: null,
   };
   const [lo, hi] = sweetSpot(bike);
@@ -189,8 +220,8 @@ function startPreview(game, bike, jersey) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
-    const sc = canvas.height / 110;
-    ctx.translate(canvas.width * 0.42, canvas.height * 0.82);
+    const sc = canvas.height / 190;
+    ctx.translate(canvas.width * 0.42, canvas.height * 0.86);
     ctx.scale(sc, sc);
     ctx.rotate(-sim.angle * Math.PI / 180);
     drawBike(ctx, loadout, null, t * 6, 0);

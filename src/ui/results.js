@@ -12,6 +12,7 @@ export function initResults(game) {
   qs('#levelup-continue').addEventListener('click', () => {
     game.audio.click();
     qs('#overlay-levelup').classList.remove('open');
+    game.state = 'results';
     if (game.pendingResults) {
       showResults(game, game.pendingResults.run, game.pendingResults.summary);
       game.pendingResults = null;

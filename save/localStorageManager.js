@@ -10,9 +10,9 @@ export function defaultSave() {
     coins: 0,
     xp: 0,
     ownedBikes: ['starter'],
-    ownedGear: [],
+    ownedGear: ['jersey-neutral', 'helmet-plain'],
     unlockedDecals: [],
-    equipped: { bike: 'starter', jersey: null, decal: null },
+    equipped: { bike: 'starter', jersey: 'jersey-neutral', decal: null, helmet: 'helmet-plain' },
     visitedMaps: ['sunrise-strip'],
     pucks: {},            // mapId -> [puckIndex, ...]
     best: {},             // mapId -> { distance, combo, wheelie }
@@ -69,9 +69,10 @@ export function resetSave() {
 // ---- Derived progression helpers -------------------------------------------
 
 // Cumulative XP required to reach level L (level 1 starts at 0).
+// Quadratic curve: L2 in about one good run, the top maps take a real grind.
 export function xpForLevel(L) {
   if (L <= 1) return 0;
-  return Math.round(60 * Math.pow(L - 1, 1.85));
+  return Math.round(100 * Math.pow(L - 1, 2));
 }
 
 export function levelFromXp(xp) {

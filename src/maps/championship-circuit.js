@@ -1,4 +1,4 @@
-// Map 8: Championship Circuit - Level 35, requires visiting all seven cities.
+// Map 8: Championship Circuit - Level 22, requires visiting all seven cities.
 // Arena-tunnel gauntlet that remixes hazards and props from every city.
 
 import { mulberry32, hashStr, tower, buntingLine, arenaFacade } from './mapUtils.js';
@@ -7,7 +7,7 @@ export const map = {
   id: 'championship-circuit',
   name: 'Championship Circuit',
   subtitle: 'The Final Gauntlet',
-  unlockLevel: 35,
+  unlockLevel: 22,
   allMapsRequired: true,
   blurb: 'Seven cities of hazards in one tunnel of banners. The crowd never sits down.',
   eggName: 'Every city, one tunnel',
