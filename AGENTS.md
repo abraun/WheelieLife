@@ -6,7 +6,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Wheelie League
 
-- No build step: serve the repo root statically (e.g. `python3 -m http.server 8080`) and open the page. ES modules will not run from `file://`.
+- No build step: `npm start` runs `server.js` (zero-dependency Node static server, binds 0.0.0.0 so LAN devices can test; `PORT` env to change). Any static server from the repo root works too. ES modules will not run from `file://`.
 - Everything hangs off the game object created in `src/main.js` (`window.__WL.game` is exposed as a debug/test hook); the state machine is MENU/RUN/PAUSED/RESULTS plus DOM screens for shop/map/garage driven from `src/ui/`.
 - Game rules and tuning live in data modules, not screens: bikes/jerseys/decals in `src/bikes.js`, maps in `src/maps/`, coins/XP/milestones in `src/economy.js`, persistence in `save/localStorageManager.js` (localStorage key `wheelie-league-save-v1`).
 - Hard IP constraint: no real NHL team names, logos, or wordmarks anywhere - city names, generic arena silhouettes, and color-palette homages only.

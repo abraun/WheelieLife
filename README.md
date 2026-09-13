@@ -7,12 +7,16 @@ All artwork, names, and color palettes are original homages - no licensed IP.
 
 ## Run it
 
-Any static file server from the repo root works:
+Requires Node 18+. The start script serves the repo root on `0.0.0.0`, so the
+printed LAN URL works from phones and other devices on the same network:
 
 ```
-python3 -m http.server 8080
-# open http://localhost:8080
+npm start            # serves on http://localhost:8080
+PORT=3000 npm start  # custom port
 ```
+
+Any other static file server from the repo root also works
+(e.g. `python3 -m http.server 8080`).
 
 ## Controls
 
